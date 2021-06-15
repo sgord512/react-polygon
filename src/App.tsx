@@ -23,6 +23,7 @@ export interface EditorState {
     | 'complete_vertex_hover'
     | 'incomplete_vertex_selected'
   points: Point[]
+  polygonTranslation: Point
 }
 
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
@@ -32,26 +33,33 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     this.state = {
       state: 'complete',
       points: INITIAL_POINTS,
+      polygonTranslation: new Point(0, 0)
     }
+
+    this.prevOffsetX = 0;
+    this.prevOffsetY = 0;
   }
 
   onVertexDrag = (ix: number, e: KonvaEventObject<DragEvent>) => {
-    const points = this.state.points;
-    points[ix].x = e.target.x();
-    points[ix].y = e.target.y();
+    const points = this.state.points.slice()
+    points[ix] = new Point(e.target.x(), e.target.y())
     this.setState({
-      points: points
+      points: points,
     })
   }
 
   onPolygonChange = (e: KonvaEventObject<Event>) => {
-    const points = this.state.points;
     //const matrix = e.target.getAbsoluteTransform();
-    const position = Point.fromObj(e.target.getAbsolutePosition());
-    console.log(`position: ${position.x}, ${position.y}`)
-    this.setState({
-      points: points.map((pt) => position.add(pt))
-      //points: points.map((pt) => Point.fromObj(matrix.point(pt)))
+    this.setState((state, _) => {
+      // const dX = e.target.x() - this.prevOffsetX 
+      // const dY = e.target.y() - this.prevOffsetY
+      // this.prevOffsetX = e.target.x();
+      // this.prevOffsetY = e.target.y();
+      //const delta = position.subtract(state.polygonTranslation)
+      //console.log(`delta: ${dX}, ${dY}`)
+      return {
+        points: state.points.map(pt => pt.add(new Point(e.target.x(), e.target.y())))
+      }
     })
   }
 
@@ -66,16 +74,10 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
           <Group>
             {points.map((pt, ix) => {
               const onVertexDrag = (e: KonvaEventObject<DragEvent>) => {
-                return this.onVertexDrag(ix, e);
+                return this.onVertexDrag(ix, e)
               }
 
-              return (
-                <Vertex
-                  point={pt}
-                  key={ix.toString()}
-                  onDragMove={onVertexDrag}
-                />
-              )
+              return <Vertex point={pt} key={ix.toString()} onDragMove={onVertexDrag} />
             })}
           </Group>
         )
@@ -101,85 +103,15 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   render = () => {
-    const { points, state } = this.state
+    const { points, state, polygonTranslation } = this.state
     const vertexGroup = this.renderVertices()
-    // case STATE.INCOMPLETE:
-    //           if (this.vertices.length >= 1) {
-    //               this.on(this.vertices[0], 'click', this.startPlacingVertex);
-    //               if (this.vertices.length >= 2) {
-    //                   this.on(this.vertices[this.vertices.length - 1], 'click', this.startPlacingVertex);
-    //               }
-    //           } else {
-    //               throw 'Should never get to the incomplete state with no vertices!';
-    //           }
-    //           break;
-
-    //       case STATE.INCOMPLETE_PLACING_VERTEX:
-    //           // Create a vertex that we'll be placing. Only pass a vertex in if there was an event triggering this state change. (This is to distinguish this case from programmatically initiating the transition.)
-    //           this.createProvisionalVertex(!!triggerEvent && triggerEvent.target);
-
-    //           // Track mouse movements to update the placement location
-    //           this.on(stage, 'mousemove', this.updateProvisionalVertexPosition);
-
-    //           // Cancel placement on a double click anywhere
-    //           this.on(stage, 'dblclick', this.cancelVertexPlacement);
-
-    //           // Have vertices listen for us placing on top of them. If we close the polygon, we need to transition. Also we prohibit placement of vertices on top of each other.
-    //           for (const vertex of this.vertices) {
-    //               this.on(vertex,  'mousedown', this.placeVertex);
-    //           }
-
-    //           // Place the vertex on a single mousedown anywhere on the stage
-    //           this.on(stage, 'mousedown', this.placeVertex);
-    //           break;
-
-    //       case STATE.COMPLETE:
-    //           this.pathLayer = null;
-    //           for (const vertex of this.vertices) {
-    //               vertex.draggable(true);
-    //           }
-    //           this.refreshPolygonAndBoundary();
-    //           this.installVertexHandlers();
-    //           break;
-
-    //       case STATE.COMPLETE_PLACING_BOUNDARY_VERTEX:
-    //           const segment = triggerEvent.target;
-    //           this.createProvisionalBoundaryVertex(segment);
-    //           for (const vertex of this.vertices) {
-    //               vertex.draggable(false);
-    //           }
-    //           this.on(segment, 'mousemove',
-    //               this.updateProvisionalBoundaryVertexPosition)
-    //           this.on(segment, 'mouseout',
-    //               this.cancelBoundaryVertexPlacement);
-    //           this.on(segment, 'mousedown',
-    //               this.placeBoundaryVertex);
-    //           break;
-
-    //       case STATE.COMPLETE_VERTEX_DRAGGING:
-    //           const vertex = triggerEvent.target;
-    //           this.on(vertex, 'dragmove', this.updateVertexPosition);
-    //           this.on(vertex, 'dragend', this.stopDraggingVertex);
-    //           break;
-
-    //       case STATE.COMPLETE_VERTEX_SELECTED:
-    //           this.selectedVertex = triggerEvent.target;
-    //           this.selectedVertex.select();
-    //           this.installVertexHandlers();
-    //           break;
-
-    //       case STATE.COMPLETE_POLY_SELECTED:
-
-    //       case STATE.COMPLETE_POLY_TRANSFORMING:
-    //       default:
-    //           throw 'Unknown state!';
-    //   }
+    
     return (
       <div className="PolygonEditor">
         <Stage width={window.innerWidth} height={window.innerHeight} _useStrictMode>
           <Layer>
-            <Polygon points={points} onChange={(e: KonvaEventObject<Event>) => this.onPolygonChange(e)}/>
-            <Boundary points={points} closed={true}/>
+            <Polygon points={points} onChange={(e: KonvaEventObject<Event>) => this.onPolygonChange(e)} x={0} y={0} />
+            <Boundary points={points} closed={true} />
             {vertexGroup}
           </Layer>
         </Stage>

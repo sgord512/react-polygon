@@ -19,23 +19,26 @@ type KonvaEventHandler<Event> = (e: KonvaEventObject<Event>) => void
 export interface VertexProps {
   point: Point
   isSelected?: boolean
-  onDragMove?: KonvaEventHandler<DragEvent>   
+  onDragMove?: KonvaEventHandler<DragEvent>
 }
 
 export function Vertex(props: VertexProps) {
+  const { point, onDragMove } = props
   const [mouseOver, setMouseOver] = useState(false)
+
+  console.log(`pt: ${point.x}, ${point.y}`)
 
   return (
     <Circle
       radius={VERTEX_RADIUS}
       fill={mouseOver ? VERTEX_MOUSEOVER_COLOR : VERTEX_DEFAULT_COLOR}
       stroke="blue"
-      x={props.point.x}
-      y={props.point.y}
+      x={point.x}
+      y={point.y}
       onMouseOver={() => setMouseOver(true)}
       onMouseOut={() => setMouseOver(false)}
       draggable
-      onDragMove={props.onDragMove}
+      onDragMove={onDragMove}
     />
   )
 }
@@ -43,11 +46,23 @@ export function Vertex(props: VertexProps) {
 export interface PolygonProps {
   points: Point[]
   onChange: KonvaEventHandler<Event>
+  x: number
+  y: number
 }
 
 export function Polygon(props: PolygonProps) {
-  const { points, onChange } = props
-  return <Line points={Point.flattenPoints(points)} fill={POLYGON_FILL_COLOR} draggable={true} closed={true} onDragMove={onChange}/>
+  const flatPoints = Point.flattenPoints(props.points)
+  console.log(flatPoints)
+  return (
+    <Line
+      points={flatPoints}
+      fill={POLYGON_FILL_COLOR}
+      x={0} y={0}
+      draggable
+      closed={true}
+      onDragMove={props.onChange}
+    />
+  )
 }
 
 // BOUNDARY
