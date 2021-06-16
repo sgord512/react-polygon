@@ -25,7 +25,6 @@ export interface EditorState {
   isPolygonSelected: boolean
   selectedVertex?: number
   provisionalBoundaryPoint?: Point
-  provisionalBoundaryPointIx?: number
   provisionalPoint?: Point
 }
 
@@ -53,10 +52,26 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     }
   }
 
+  onVertexDragEnd = (ix: number, e: KonvaEventObject<DragEvent>) => {
+    const points = this.state.points.slice()
+    points[ix] = new Point(e.target.x(), e.target.y())
+    this.setState({ state: 'complete', points: points, isPolygonSelected: false })
+  }
+
   onVertexDrag = (ix: number, e: KonvaEventObject<DragEvent>) => {
     const points = this.state.points.slice()
     points[ix] = new Point(e.target.x(), e.target.y())
-    this.setState({ points: points, isPolygonSelected: false })
+    this.setState({ state: 'complete_vertex_dragging', points: points, isPolygonSelected: false })
+  }
+
+  onVertexClick = (ix: number, e: KonvaEventObject<MouseEvent>) => {
+    this.setState((state, _) => {
+      const deselect = state.selectedVertex === ix
+      return {
+        state: deselect ? 'complete' : 'complete_vertex_selected',
+        selectedVertex: deselect ? undefined : ix,
+      }
+    })
   }
 
   onPolygonDrag = (e: KonvaEventObject<DragEvent>) => {
@@ -82,6 +97,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     e.cancelBubble = true
     this.setState((state, _) => {
       return {
+        state: state.isPolygonSelected ? 'complete' : 'complete_poly_selected',
         isPolygonSelected: !state.isPolygonSelected,
       }
     })
@@ -90,7 +106,10 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     e.cancelBubble = true
     if (e.target === e.target.getStage()) {
-      this.setState({ isPolygonSelected: false })
+      this.setState({
+        isPolygonSelected: false,
+        state: 'complete',
+      })
     }
   }
 
@@ -102,70 +121,79 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
       case 'incomplete_placing_vertex':
       case 'complete_vertex_dragging':
       case 'complete_poly_transforming':
-      case 'complete_vertex_hover':
-      case 'complete_vertex_selected_hover':
       case 'complete_vertex_mousedown':
       case 'complete_vertex_selected_mousedown':
       case 'incomplete_vertex_selected':
+      case 'complete_poly_selected':
         return
       case 'complete':
       case 'complete_vertex_selected':
-      case 'complete_poly_selected':
       case 'complete_placing_boundary_vertex':
         this.setState((state, _) => {
           const pointer = e.target.getStage().getPointerPosition()
           return {
             state: 'complete_placing_boundary_vertex',
             provisionalBoundaryPoint: Point.fromObj(pointer),
-            isPolygonSelected: false,            
+            isPolygonSelected: false,
           }
         })
         return
     }
   }
 
-  onBoundaryEndHover = (e: KonvaEventObject<MouseEvent>) => {
+  onBoundaryHoverEnd = (e: KonvaEventObject<MouseEvent>) => {
     this.setState({ state: 'complete', provisionalBoundaryPoint: undefined })
   }
 
+  onBoundaryMouseDown = (ix: number, e: KonvaEventObject<MouseEvent>) => {
+    this.setState((state, _) => {
+      const points = state.points.slice()
+      points.splice(ix + 1, 0, state.provisionalBoundaryPoint)
+      return {
+        points: points,
+        state: 'complete',
+      }
+    })
+  }
+
   renderVertices = () => {
-    const { state, points } = this.state
+    const { state, points, selectedVertex, provisionalBoundaryPoint } = this.state
+    var vertices
     switch (state) {
       case 'complete':
       case 'complete_placing_boundary_vertex':
       case 'complete_poly_selected':
       case 'complete_poly_transforming':
-        return (
-          <Group>
-            {points.map((pt, ix) => {
-              return <Vertex point={pt} key={ix.toString()} onDragMove={e => this.onVertexDrag(ix, e)} />
-            })}
-          </Group>
-        )
-      case 'complete_vertex_dragging':
-        break
       case 'complete_vertex_selected':
-        break
+      case 'complete_vertex_dragging':
+        vertices = points.map((pt, ix) => {
+          return (
+            <Vertex
+              point={pt}
+              key={ix.toString()}
+              onDragMove={e => this.onVertexDrag(ix, e)}
+              isSelected={selectedVertex === ix}
+              onClick={e => this.onVertexClick(ix, e)}
+              onDragEnd={e => this.onVertexDragEnd(ix, e)}
+            />
+          )
+        })
+        if (state === 'complete_placing_boundary_vertex' && provisionalBoundaryPoint) {
+          vertices.push(<Vertex point={provisionalBoundaryPoint} provisional key={(-1).toString()} />)
+        }
+        return <Group>{vertices}</Group>
       case 'complete_vertex_selected_hover':
-        break
       case 'complete_vertex_hover':
-        break
       case 'complete_vertex_mousedown':
-        break
       case 'incomplete':
-        break
       case 'incomplete_placing_vertex':
-        break
       case 'incomplete_vertex_selected':
-        break
-      default:
         return null
     }
   }
 
   render = () => {
-    const { points, state, provisionalBoundaryPoint } = this.state
-    const vertexGroup = this.renderVertices()
+    const { points } = this.state
 
     return (
       <div className="PolygonEditor">
@@ -185,9 +213,16 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
               ref={this.polygonRef}
               isSelected
             />
-            <Boundary points={points} closed={true} onHover={(ix, e) => this.onBoundaryHover(ix, e)} onEndHover={(e) => this.onBoundaryEndHover(e)} />
-            {vertexGroup}
-            {provisionalBoundaryPoint && <Vertex point={provisionalBoundaryPoint} provisional />}
+            <Boundary
+              points={points}
+              closed={true}
+              onHover={this.onBoundaryHover}
+              onEndHover={this.onBoundaryHoverEnd}
+              onMouseDown={this.onBoundaryMouseDown}
+            />
+
+            {this.renderVertices()}
+
             {this.state.isPolygonSelected && (
               <Transformer ref={this.transformerRef} padding={10} rotateEnabled={false} />
             )}
