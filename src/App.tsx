@@ -24,7 +24,6 @@ export interface EditorState {
     | 'incomplete_vertex_selected'
   points: Point[]
   polygonTranslation: Point
-  polygonKey: number
 }
 
 const o = 300
@@ -37,7 +36,6 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
       state: 'complete',
       points: INITIAL_POINTS,
       polygonTranslation: new Point(0, 0),
-      polygonKey: 0,
     }
     this.key = 0
   }
@@ -58,7 +56,10 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
 
   onPolygonChange = (e: KonvaEventObject<Event>) => {
     const points = this.state.points.map(pt => pt.add(new Point(e.evt.movementX, e.evt.movementY)))
-    this.setState({ points })
+    this.setState({ points }, () => {
+      e.target.x(0)
+      e.target.y(0)
+    })
   }
 
   renderVertices = () => {
@@ -101,21 +102,14 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   render = () => {
-    const { points, state, polygonTranslation, polygonKey } = this.state
+    const { points, state, polygonTranslation } = this.state
     const vertexGroup = this.renderVertices()
 
     return (
       <div className="PolygonEditor">
         <Stage width={window.innerWidth} height={window.innerHeight} _useStrictMode>
           <Layer>
-            <Polygon points={points} draggable={false} />
-            <Polygon
-              key={polygonKey}
-              fill="rgba(0, 0, 0, 0)"
-              points={points}
-              onDragMove={(e: KonvaEventObject<Event>) => this.onPolygonChange(e)}
-              onDragEnd={e => this.setState(state => ({ polygonKey: state.polygonKey + 1 }))}
-            />
+            <Polygon points={points} onDragMove={(e: KonvaEventObject<Event>) => this.onPolygonChange(e)} />
             <Boundary points={points} closed={true} />
             {vertexGroup}
           </Layer>
