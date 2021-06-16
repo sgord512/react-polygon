@@ -26,7 +26,6 @@ export interface EditorState {
   polygonTranslation: Point
 }
 
-const o = 300
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
 
 export default class PolygonEditor extends React.Component<{}, EditorState> {
@@ -35,17 +34,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     this.state = {
       state: 'complete',
       points: INITIAL_POINTS,
-      polygonTranslation: new Point(0, 0),
     }
-    this.key = 0
-  }
-
-  componentDidMount() {
-    setTimeout(() => {
-      const points = [new Point(o + 100, o + 100), new Point(o + 200, o + 100), new Point(o + 160, o + 200)]
-      this.key = 1
-      this.setState({ points })
-    }, 1000)
   }
 
   onVertexDrag = (ix: number, e: KonvaEventObject<DragEvent>) => {
@@ -102,7 +91,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   render = () => {
-    const { points, state, polygonTranslation } = this.state
+    const { points, state } = this.state
     const vertexGroup = this.renderVertices()
 
     return (

@@ -37,20 +37,18 @@ export function Vertex(props: VertexProps) {
       y={point.y}
       onMouseOver={() => setMouseOver(true)}
       onMouseOut={() => setMouseOver(false)}
-      draggable
       onDragMove={onDragMove}
+      draggable
     />
   )
 }
 // POLYGON
 export interface PolygonProps {
   points: Point[]
-  onDragMove: KonvaEventHandler<Event>
-  onDragEnd: KonvaEventHandler<Event>
+  onDragMove: KonvaEventHandler<DragEvent>
+  onDragEnd: KonvaEventHandler<DragEvent>
   fill?: string
   draggable?: boolean
-  x: number
-  y: number
 }
 
 export function Polygon(props: PolygonProps) {
