@@ -1,7 +1,8 @@
 import { Point } from './Point'
-import { Circle, Line, Group } from 'react-konva'
+import { Circle, Line, Group, Transformer } from 'react-konva'
 import { useState } from 'react'
 import { KonvaEventObject } from 'konva/lib/Node'
+import React from 'react'
 
 const VERTEX_RADIUS = 5
 const VERTEX_DEFAULT_COLOR = 'white'
@@ -26,7 +27,7 @@ export function Vertex(props: VertexProps) {
   const { point, onDragMove } = props
   const [mouseOver, setMouseOver] = useState(false)
 
-  console.log(`pt: ${point.x}, ${point.y}`)
+  //console.log(`pt: ${point.x}, ${point.y}`)
 
   return (
     <Circle
@@ -45,28 +46,42 @@ export function Vertex(props: VertexProps) {
 // POLYGON
 export interface PolygonProps {
   points: Point[]
-  onDragMove: KonvaEventHandler<DragEvent>
-  onDragEnd: KonvaEventHandler<DragEvent>
+  onDragMove?: KonvaEventHandler<DragEvent>
+  onDragEnd?: KonvaEventHandler<DragEvent>
   fill?: string
   draggable?: boolean
+  isSelected?: boolean
+  onTransform?: KonvaEventHandler<Event>
+  onClick?: KonvaEventHandler<MouseEvent>
+  ref: React.MutableRefObject<undefined>
 }
 
-export function Polygon(props: PolygonProps) {
+export const Polygon = React.forwardRef((props: PolygonProps, ref) => {
   const flatPoints = Point.flattenPoints(props.points)
-
-  const { fill = POLYGON_FILL_COLOR, draggable = true, onDragMove, onDragEnd } = props
+  const {
+    fill = POLYGON_FILL_COLOR,
+    draggable = true,
+    onDragMove,
+    onDragEnd,
+    onTransform,
+    onClick,
+    isSelected = false,
+  } = props
 
   return (
-    <Line
-      points={flatPoints}
-      fill={fill}
-      draggable={draggable}
-      closed
-      onDragMove={onDragMove}
-      onDragEnd={onDragEnd}
-    />
+      <Line
+        points={flatPoints}
+        fill={fill}
+        draggable={draggable}
+        closed
+        ref={ref}
+        onDragMove={onDragMove}
+        onDragEnd={onDragEnd}
+        onTransform={onTransform}
+        onClick={onClick}
+      />
   )
-}
+}) 
 
 // BOUNDARY
 export interface SegmentProps {

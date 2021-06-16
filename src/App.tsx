@@ -1,7 +1,7 @@
 import React from 'react'
 import './App.css'
 //import Konva from 'konva';
-import { Group, Layer, Stage } from 'react-konva'
+import { Group, Layer, Stage, Transformer } from 'react-konva'
 import { Point } from './Point'
 import { Vertex, Polygon, Boundary } from './Shapes'
 import { KonvaEventObject } from 'konva/lib/Node'
@@ -23,23 +23,37 @@ export interface EditorState {
     | 'complete_vertex_hover'
     | 'incomplete_vertex_selected'
   points: Point[]
+  isPolygonSelected: boolean
 }
 
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
 
 export default class PolygonEditor extends React.Component<{}, EditorState> {
+  polygonRef: React.RefObject<typeof Polygon>
+  transformerRef: React.RefObject<Transformer<any, any>>
+
   constructor(props: {}) {
     super(props)
     this.state = {
       state: 'complete',
       points: INITIAL_POINTS,
+      isPolygonSelected: false,
+    }
+    this.polygonRef = React.createRef<typeof Polygon>()
+    this.transformerRef = React.createRef<Transformer>()
+  }
+
+  componentDidUpdate = (prevProps, prevState: EditorState, snapshot) => {
+    if (!prevState.isPolygonSelected && this.state.isPolygonSelected) {
+      this.transformerRef.current.nodes([this.polygonRef.current])
+      this.transformerRef.current.getLayer().batchDraw()
     }
   }
 
   onVertexDrag = (ix: number, e: KonvaEventObject<DragEvent>) => {
     const points = this.state.points.slice()
     points[ix] = new Point(e.target.x(), e.target.y())
-    this.setState({ points })
+    this.setState({ points: points, isPolygonSelected: false })
   }
 
   onPolygonDrag = (e: KonvaEventObject<DragEvent>) => {
@@ -48,6 +62,33 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
       e.target.x(0)
       e.target.y(0)
     })
+  }
+
+  onPolygonTransform = (e: KonvaEventObject<Event>) => {
+    const matrix = e.target.getAbsoluteTransform()
+    const points = this.state.points.map(pt => Point.fromObj(matrix.point(pt)))
+    this.setState({ points }, () => {
+      e.target.scaleX(1)
+      e.target.scaleY(1)
+      e.target.x(0)
+      e.target.y(0)
+    })
+  }
+
+  onPolygonClick = (e: KonvaEventObject<MouseEvent>) => {
+    e.cancelBubble = true;
+    this.setState((state, _) => {
+      return {
+        isPolygonSelected: !state.isPolygonSelected,
+      }
+    })
+  }
+
+  onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    e.cancelBubble = true;
+    if (e.target === e.target.getStage()) {
+      this.setState({ isPolygonSelected: false})
+    }
   }
 
   renderVertices = () => {
@@ -95,11 +136,22 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
 
     return (
       <div className="PolygonEditor">
-        <Stage width={window.innerWidth} height={window.innerHeight} _useStrictMode>
+        <Stage width={window.innerWidth} height={window.innerHeight} _useStrictMode onMouseDown={(e) => this.onStageMouseDown(e)}>
           <Layer>
-            <Polygon points={points} onDragMove={e => this.onPolygonDrag(e)} onDragEnd={e => this.onPolygonDrag(e)} />
+            <Polygon
+              points={points}
+              onDragMove={e => this.onPolygonDrag(e)}
+              onDragEnd={e => this.onPolygonDrag(e)}
+              onTransform={e => this.onPolygonTransform(e)}
+              onClick={e => this.onPolygonClick(e)}
+              ref={this.polygonRef}
+              isSelected
+            />
             <Boundary points={points} closed={true} />
             {vertexGroup}
+            {this.state.isPolygonSelected && (
+              <Transformer ref={this.transformerRef} padding={10} rotateEnabled={false} />
+            )}
           </Layer>
         </Stage>
       </div>
