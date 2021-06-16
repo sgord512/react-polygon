@@ -45,22 +45,27 @@ export function Vertex(props: VertexProps) {
 // POLYGON
 export interface PolygonProps {
   points: Point[]
-  onChange: KonvaEventHandler<Event>
+  onDragMove: KonvaEventHandler<Event>
+  onDragEnd: KonvaEventHandler<Event>
+  fill?: string
+  draggable?: boolean
   x: number
   y: number
 }
 
 export function Polygon(props: PolygonProps) {
   const flatPoints = Point.flattenPoints(props.points)
-  console.log(flatPoints)
+
+  const { fill = POLYGON_FILL_COLOR, draggable = true, onDragMove, onDragEnd } = props
+
   return (
     <Line
       points={flatPoints}
-      fill={POLYGON_FILL_COLOR}
-      x={0} y={0}
-      draggable
-      closed={true}
-      onDragMove={props.onChange}
+      fill={fill}
+      draggable={draggable}
+      closed
+      onDragMove={onDragMove}
+      onDragEnd={onDragEnd}
     />
   )
 }
