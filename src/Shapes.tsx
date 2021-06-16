@@ -21,10 +21,11 @@ export interface VertexProps {
   point: Point
   isSelected?: boolean
   onDragMove?: KonvaEventHandler<DragEvent>
+  provisional?: boolean
 }
 
 export function Vertex(props: VertexProps) {
-  const { point, onDragMove } = props
+  const { point, onDragMove, provisional } = props
   const [mouseOver, setMouseOver] = useState(false)
 
   //console.log(`pt: ${point.x}, ${point.y}`)
@@ -39,7 +40,8 @@ export function Vertex(props: VertexProps) {
       onMouseOver={() => setMouseOver(true)}
       onMouseOut={() => setMouseOver(false)}
       onDragMove={onDragMove}
-      draggable
+      draggable={!provisional}
+      listening={!provisional}
     />
   )
 }
@@ -69,54 +71,63 @@ export const Polygon = React.forwardRef((props: PolygonProps, ref) => {
   } = props
 
   return (
-      <Line
-        points={flatPoints}
-        fill={fill}
-        draggable={draggable}
-        closed
-        ref={ref}
-        onDragMove={onDragMove}
-        onDragEnd={onDragEnd}
-        onTransform={onTransform}
-        onClick={onClick}
-      />
+    <Line
+      points={flatPoints}
+      fill={fill}
+      draggable={draggable}
+      closed
+      ref={ref}
+      onDragMove={onDragMove}
+      onDragEnd={onDragEnd}
+      onTransform={onTransform}
+      onClick={onClick}
+    />
   )
-}) 
+})
 
-// BOUNDARY
+// BOUNDARY/SEGMENTS
+
+// BOUNDARY SEGMENT
 export interface SegmentProps {
   startEndPoints: [number, number, number, number]
+  onHover?: KonvaEventHandler<MouseEvent>
+  onEndHover?: KonvaEventHandler<MouseEvent>
 }
 
 export function Segment(props: SegmentProps) {
-  const { startEndPoints } = props
+  const { startEndPoints, onHover, onEndHover } = props
   return (
     <Line
       points={startEndPoints}
       stroke={BOUNDARY_STROKE_COLOR}
       strokeWidth={BOUNDARY_STROKE_WIDTH}
       hitStrokeWidth={BOUNDARY_STROKE_HIT_WIDTH}
+      onMouseMove={onHover}
+      onMouseOver={onHover}
+      onMouseOut={onEndHover}
     />
   )
 }
 
+// BOUNDARY
 export interface BoundaryProps {
   points: Point[]
   closed: boolean
+  onHover: (ix: number, e: KonvaEventObject<MouseEvent>) => void
+  onEndHover?: KonvaEventHandler<MouseEvent>
 }
 
 export function Boundary(props: BoundaryProps) {
-  const { points, closed } = props
-  const segments = []
-  for (var i = 0; i + 1 < points.length; i++) {
+  const { points, closed, onHover, onEndHover } = props
+  const segments = points.slice(0, points.length - 1).map((_, ix) => {
     const startEndPoints: [number, number, number, number] = [
-      points[i].x,
-      points[i].y,
-      points[i + 1].x,
-      points[i + 1].y,
+      points[ix].x,
+      points[ix].y,
+      points[ix + 1].x,
+      points[ix + 1].y,
     ]
-    segments.push(<Segment startEndPoints={startEndPoints} key={i.toString()} />)
-  }
+    return <Segment startEndPoints={startEndPoints} key={ix.toString()} onHover={e => onHover(ix, e)} onEndHover={onEndHover} />
+  })
   if (closed) {
     const startEndPoints: [number, number, number, number] = [
       points[points.length - 1].x,
@@ -124,7 +135,8 @@ export function Boundary(props: BoundaryProps) {
       points[0].x,
       points[0].y,
     ]
-    segments.push(<Segment startEndPoints={startEndPoints} />)
+    const ix = points.length - 1
+    segments.push(<Segment startEndPoints={startEndPoints} key={ix.toString()} onHover={e => onHover(ix, e)} onEndHover={onEndHover} />)
   }
   return <Group>{segments}</Group>
 }

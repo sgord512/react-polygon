@@ -8,22 +8,25 @@ import { KonvaEventObject } from 'konva/lib/Node'
 
 export interface EditorState {
   state:
+    | 'incomplete'
+    | 'incomplete_placing_vertex'
+    | 'incomplete_vertex_selected'
+    | 'complete_vertex_hover'
+    | 'complete_vertex_selected_hover'
+    | 'complete_vertex_mousedown'
+    | 'complete_vertex_selected_mousedown'
     | 'complete'
     | 'complete_vertex_selected'
     | 'complete_vertex_dragging'
     | 'complete_poly_selected'
     | 'complete_poly_transforming'
     | 'complete_placing_boundary_vertex'
-    | 'incomplete'
-    | 'incomplete_placing_vertex'
-    | 'complete_vertex_hover'
-    | 'complete_vertex_selected_hover'
-    | 'complete_vertex_mousedown'
-    | 'complete_vertex_selected_mousedown'
-    | 'complete_vertex_hover'
-    | 'incomplete_vertex_selected'
   points: Point[]
   isPolygonSelected: boolean
+  selectedVertex?: number
+  provisionalBoundaryPoint?: Point
+  provisionalBoundaryPointIx?: number
+  provisionalPoint?: Point
 }
 
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
@@ -76,7 +79,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   onPolygonClick = (e: KonvaEventObject<MouseEvent>) => {
-    e.cancelBubble = true;
+    e.cancelBubble = true
     this.setState((state, _) => {
       return {
         isPolygonSelected: !state.isPolygonSelected,
@@ -85,10 +88,44 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
-    e.cancelBubble = true;
+    e.cancelBubble = true
     if (e.target === e.target.getStage()) {
-      this.setState({ isPolygonSelected: false})
+      this.setState({ isPolygonSelected: false })
     }
+  }
+
+  onBoundaryHover = (ix: number, e: KonvaEventObject<MouseEvent>) => {
+    //console.log('On boundary hover')
+    const { state } = this.state
+    switch (state) {
+      case 'incomplete':
+      case 'incomplete_placing_vertex':
+      case 'complete_vertex_dragging':
+      case 'complete_poly_transforming':
+      case 'complete_vertex_hover':
+      case 'complete_vertex_selected_hover':
+      case 'complete_vertex_mousedown':
+      case 'complete_vertex_selected_mousedown':
+      case 'incomplete_vertex_selected':
+        return
+      case 'complete':
+      case 'complete_vertex_selected':
+      case 'complete_poly_selected':
+      case 'complete_placing_boundary_vertex':
+        this.setState((state, _) => {
+          const pointer = e.target.getStage().getPointerPosition()
+          return {
+            state: 'complete_placing_boundary_vertex',
+            provisionalBoundaryPoint: Point.fromObj(pointer),
+            isPolygonSelected: false,            
+          }
+        })
+        return
+    }
+  }
+
+  onBoundaryEndHover = (e: KonvaEventObject<MouseEvent>) => {
+    this.setState({ state: 'complete', provisionalBoundaryPoint: undefined })
   }
 
   renderVertices = () => {
@@ -101,11 +138,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
         return (
           <Group>
             {points.map((pt, ix) => {
-              const onVertexDrag = (e: KonvaEventObject<DragEvent>) => {
-                return this.onVertexDrag(ix, e)
-              }
-
-              return <Vertex point={pt} key={ix.toString()} onDragMove={onVertexDrag} />
+              return <Vertex point={pt} key={ix.toString()} onDragMove={e => this.onVertexDrag(ix, e)} />
             })}
           </Group>
         )
@@ -131,12 +164,17 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
   }
 
   render = () => {
-    const { points, state } = this.state
+    const { points, state, provisionalBoundaryPoint } = this.state
     const vertexGroup = this.renderVertices()
 
     return (
       <div className="PolygonEditor">
-        <Stage width={window.innerWidth} height={window.innerHeight} _useStrictMode onMouseDown={(e) => this.onStageMouseDown(e)}>
+        <Stage
+          width={window.innerWidth}
+          height={window.innerHeight}
+          _useStrictMode
+          onMouseDown={e => this.onStageMouseDown(e)}
+        >
           <Layer>
             <Polygon
               points={points}
@@ -147,8 +185,9 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
               ref={this.polygonRef}
               isSelected
             />
-            <Boundary points={points} closed={true} />
+            <Boundary points={points} closed={true} onHover={(ix, e) => this.onBoundaryHover(ix, e)} onEndHover={(e) => this.onBoundaryEndHover(e)} />
             {vertexGroup}
+            {provisionalBoundaryPoint && <Vertex point={provisionalBoundaryPoint} provisional />}
             {this.state.isPolygonSelected && (
               <Transformer ref={this.transformerRef} padding={10} rotateEnabled={false} />
             )}
