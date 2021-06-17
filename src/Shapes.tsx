@@ -5,7 +5,6 @@ import { KonvaEventObject } from 'konva/lib/Node'
 import React from 'react'
 import { isPropertySignature } from 'typescript'
 
-const VERTEX_RADIUS = 5
 const VERTEX_DEFAULT_COLOR = 'white'
 const VERTEX_SELECTED_COLOR = 'rgba(237, 82, 61, 1)'
 const VERTEX_MOUSEOVER_COLOR = 'rgba(40, 191, 138, 1)'
@@ -15,8 +14,11 @@ const BOUNDARY_STROKE_COLOR = 'rgba(108, 159, 241, 1)'
 const BOUNDARY_STROKE_WIDTH = 3
 const BOUNDARY_STROKE_HIT_WIDTH = 8
 const VERTEX_SELECTED_STROKE_COLOR = 'rgba(155, 28, 255, 1)';
-const VERTEX_SELECTED_STROKE_WIDTH = 4
+const VERTEX_SELECTED_STROKE_WIDTH = 3
 const VERTEX_DEFAULT_STROKE_WIDTH = 2
+const VERTEX_DEFAULT_RADIUS = 5
+const VERTEX_MOUSEOVER_RADIUS = 7
+
 const VERTEX_DEFAULT_STROKE_COLOR = 'rgba(49, 77, 255, 1)'
 
 type KonvaEventHandler<Event> = (e: KonvaEventObject<Event>) => void
@@ -25,6 +27,7 @@ type KonvaEventHandler<Event> = (e: KonvaEventObject<Event>) => void
 export interface VertexProps {
   point: Point
   isSelected?: boolean
+  hover?: boolean
   onDragMove?: KonvaEventHandler<DragEvent>
   provisional?: boolean
   onClick?: KonvaEventHandler<MouseEvent>
@@ -39,7 +42,7 @@ export function Vertex(props: VertexProps) {
 
   return (
     <Circle
-      radius={VERTEX_RADIUS}
+      radius={mouseOver ? VERTEX_MOUSEOVER_RADIUS : VERTEX_DEFAULT_RADIUS}
       fill={fill}
       stroke={props.isSelected ? VERTEX_SELECTED_STROKE_COLOR : VERTEX_DEFAULT_STROKE_COLOR}
       strokeWidth={props.isSelected ? VERTEX_SELECTED_STROKE_WIDTH : VERTEX_DEFAULT_STROKE_WIDTH}

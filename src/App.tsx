@@ -12,10 +12,10 @@ import { Vector2d as KonvaVector2d } from 'konva/lib/types'
 import { recordPoint } from './PointController'
 const DELTA = 1
 
-type EditState =
+type EditData =
   | { tag: 'incomplete'; hover?: number }
   | { tag: 'incomplete_placing_vertex'; point: Point; atEnd: boolean, prevPoints?: Point[] }
-  // Temporarily let's not have this be possible
+  // The 'incomplete_vertex_selected' state is not possible
   | { tag: 'incomplete_vertex_selected'; selected: number; hover?: number }
   | { tag: 'complete'; hover?: number }
   | { tag: 'complete_vertex_selected'; selected: number; hover?: number }
@@ -27,8 +27,23 @@ type EditState =
   | { tag: 'complete_poly_dragging' }
   | { tag: 'complete_placing_boundary_vertex'; point: Point }
 
+// function cloneData(data: EditData) : EditData {
+//   switch (data.tag) {
+//     case 'complete': 
+//       return {tag: 'complete'}
+//     case 'complete_placing_boundary_vertex':
+//       return {tag: 'complete_placing_boundary_vertex', point: data.point.clone()}
+//     case 'complete_poly_dragging':
+//       return
+//     case 'complete_poly_selected':
+//       return
+//     case 'complete_poly_selected_dragging'
+
+//   }
+// }
+
 export type EditorState = {
-  data: EditState // I don't want to lift the values here into the top-level of the object, because that would lead to shallow merges and more fields than expected. So I'm wrapping this in an additional layer of abstraction.
+  data: EditData // I don't want to lift the values here into the top-level of the object, because that would lead to shallow merges and more fields than expected. So I'm wrapping this in an additional layer of abstraction.
   points: Point[]
 }
 
@@ -74,6 +89,15 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     points[ix] = new Point(e.target.x(), e.target.y())
     this.setState({ data: { tag: 'complete_vertex_dragging' }, points: points })
   }
+
+  // onVertexMouseOver = (ix: number, e: KonvaEventObject<MouseEvent>) => {
+  //   const data = this.state.data
+  //   switch (data.tag) { 
+  //     case ''
+  //     default: 
+  //       return
+  //   }
+  // }
 
   onVertexClick = (ix: number, e: KonvaEventObject<MouseEvent>) => {
     e.cancelBubble = true
@@ -128,6 +152,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     const matrix = e.target.getAbsoluteTransform()
     const points = this.state.points.map(pt => Point.fromObj(matrix.point(pt)))
     this.setState({ points }, () => {
+      e.target.rotation(0)
       e.target.scaleX(1)
       e.target.scaleY(1)
       e.target.x(0)
@@ -411,7 +436,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
             {this.renderBoundary()}
             {this.renderVertices()}
 
-            {isPolySelected && <Transformer ref={this.transformerRef} padding={10} rotateEnabled={false} />}
+            {isPolySelected && <Transformer ref={this.transformerRef} padding={10} rotateEnabled={true} />}
           </Layer>
         </Stage>
       </div>
