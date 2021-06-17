@@ -27,6 +27,10 @@ type EditData =
   | { tag: 'complete_poly_dragging' }
   | { tag: 'complete_placing_boundary_vertex'; point: Point }
 
+function isIncompletePolygon(data: EditData) : boolean {
+  return data.tag === 'incomplete' || data.tag === 'incomplete_placing_vertex' || data.tag === 'incomplete_vertex_selected';
+}
+
 // function cloneData(data: EditData) : EditData {
 //   switch (data.tag) {
 //     case 'complete': 
@@ -42,6 +46,10 @@ type EditData =
 //   }
 // }
 
+// TODO: Make the points props just raw x and y objects, then turn them into the point instances in the constructor.
+// TODO: Get rotation working
+// TODO: Add an onChange prop for the polygon. 
+
 export type EditorState = {
   data: EditData // I don't want to lift the values here into the top-level of the object, because that would lead to shallow merges and more fields than expected. So I'm wrapping this in an additional layer of abstraction.
   points: Point[]
@@ -49,21 +57,28 @@ export type EditorState = {
 
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
 
-export default class PolygonEditor extends React.Component<{}, EditorState> {
+export interface PolygonEditorProps {
+  points: {x: number, y: number}[],
+  complete: boolean,
+  onChange?: (points: Point[], complete: boolean) => void 
+}
+
+export default class PolygonEditor extends React.Component<PolygonEditorProps, EditorState> {
   polygonRef: React.RefObject<KonvaLine>
   transformerRef: React.RefObject<KonvaTransformer>
   stageRef: React.RefObject<KonvaStage>
-  //vertexRef: React.RefObject<KonvaCircle>
+  onChange?: (points: Point[], complete: boolean) => void
 
-  constructor(props: {}) {
+  constructor(props: PolygonEditorProps) {
     super(props)
     this.state = {
-      data: { tag: 'complete' },
-      points: INITIAL_POINTS,
+      data: props.complete ? { tag: 'complete' } : {tag: 'incomplete_placing_vertex', point: new Point(0, 0), atEnd: true },
+      points: props.points.map(pt => Point.fromObj(pt)),
     }
     this.polygonRef = React.createRef<KonvaLine>()
     this.transformerRef = React.createRef<KonvaTransformer>()
     this.stageRef = React.createRef<KonvaStage>()
+    this.onChange = props.onChange
   }
 
   componentDidUpdate = (_prevProps: any, prevState: EditorState, _snapshot: any) => {
@@ -75,6 +90,29 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     if (!wasPolygonSelected && isPolygonSelected) {
       transformer.nodes([polygon])
       transformer.getLayer()?.batchDraw()
+    }
+
+    // Decide whether to call the onChange handler
+    const oldPoints = prevState.points
+    const points = this.state.points
+    const isCurrIncomplete = isIncompletePolygon(this.state.data);
+    var didPointsChange = false;
+    if (oldPoints.length !== points.length) { 
+      didPointsChange = true;
+    } else {
+      for (var i=0; i < points.length; i++) { 
+        if (points[i].x !== oldPoints[i].x || points[i].y !== oldPoints[i].y) { 
+          didPointsChange = true;
+        }
+      }
+    }
+    if (didPointsChange) { 
+      this.onChange && this.onChange(points, !isCurrIncomplete);
+    } else { 
+      const isPrevIncomplete = isIncompletePolygon(prevState.data);
+      if (isPrevIncomplete !== isCurrIncomplete) { 
+        this.onChange && this.onChange(points, !isCurrIncomplete)
+      }
     }
   }
 
@@ -144,19 +182,19 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
     const points = this.state.points.map(pt => pt.add(new Point(e.evt.movementX, e.evt.movementY)))
     this.setState({ points }, () => {
       e.target.x(0)
-      e.target.y(0)
+      e.target.y(0)    
     })
   }
 
   onPolygonTransform = (e: KonvaEventObject<Event>) => {
-    const matrix = e.target.getAbsoluteTransform()
+    const matrix = e.target.getAbsoluteTransform()    
     const points = this.state.points.map(pt => Point.fromObj(matrix.point(pt)))
     this.setState({ points }, () => {
-      e.target.rotation(0)
-      e.target.scaleX(1)
-      e.target.scaleY(1)
       e.target.x(0)
       e.target.y(0)
+      //e.target.rotation(0)
+      e.target.scaleX(1)
+      e.target.scaleY(1)    
     })
   }
 
@@ -436,7 +474,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState> {
             {this.renderBoundary()}
             {this.renderVertices()}
 
-            {isPolySelected && <Transformer ref={this.transformerRef} padding={10} rotateEnabled={true} />}
+            {isPolySelected && <Transformer ref={this.transformerRef} padding={10} rotateEnabled={false} />}
           </Layer>
         </Stage>
       </div>
