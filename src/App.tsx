@@ -14,7 +14,7 @@ const DELTA = 1
 
 type EditData =
   | { tag: 'incomplete'; hover?: number }
-  | { tag: 'incomplete_placing_vertex'; point: Point; atEnd: boolean, prevPoints?: Point[] }
+  | { tag: 'incomplete_placing_vertex'; point: Point; atEnd: boolean; prevPoints?: Point[] }
   // The 'incomplete_vertex_selected' state is not possible
   | { tag: 'incomplete_vertex_selected'; selected: number; hover?: number }
   | { tag: 'complete'; hover?: number }
@@ -27,13 +27,15 @@ type EditData =
   | { tag: 'complete_poly_dragging' }
   | { tag: 'complete_placing_boundary_vertex'; point: Point }
 
-function isIncompletePolygon(data: EditData) : boolean {
-  return data.tag === 'incomplete' || data.tag === 'incomplete_placing_vertex' || data.tag === 'incomplete_vertex_selected';
+function isIncompletePolygon(data: EditData): boolean {
+  return (
+    data.tag === 'incomplete' || data.tag === 'incomplete_placing_vertex' || data.tag === 'incomplete_vertex_selected'
+  )
 }
 
 // function cloneData(data: EditData) : EditData {
 //   switch (data.tag) {
-//     case 'complete': 
+//     case 'complete':
 //       return {tag: 'complete'}
 //     case 'complete_placing_boundary_vertex':
 //       return {tag: 'complete_placing_boundary_vertex', point: data.point.clone()}
@@ -48,19 +50,16 @@ function isIncompletePolygon(data: EditData) : boolean {
 
 // TODO: Make the points props just raw x and y objects, then turn them into the point instances in the constructor.
 // TODO: Get rotation working
-// TODO: Add an onChange prop for the polygon. 
+// TODO: Add an onChange prop for the polygon.
 
 export type EditorState = {
   data: EditData // I don't want to lift the values here into the top-level of the object, because that would lead to shallow merges and more fields than expected. So I'm wrapping this in an additional layer of abstraction.
   points: Point[]
 }
-
-const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
-
 export interface PolygonEditorProps {
-  points: {x: number, y: number}[],
-  complete: boolean,
-  onChange?: (points: Point[], complete: boolean) => void 
+  points: { x: number; y: number }[]
+  complete: boolean
+  onChange?: (points: Point[], complete: boolean) => void
 }
 
 export default class PolygonEditor extends React.Component<PolygonEditorProps, EditorState> {
@@ -72,7 +71,9 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
   constructor(props: PolygonEditorProps) {
     super(props)
     this.state = {
-      data: props.complete ? { tag: 'complete' } : {tag: 'incomplete_placing_vertex', point: new Point(0, 0), atEnd: true },
+      data: props.complete
+        ? { tag: 'complete' }
+        : { tag: 'incomplete_placing_vertex', point: new Point(0, 0), atEnd: true },
       points: props.points.map(pt => Point.fromObj(pt)),
     }
     this.polygonRef = React.createRef<KonvaLine>()
@@ -95,22 +96,22 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
     // Decide whether to call the onChange handler
     const oldPoints = prevState.points
     const points = this.state.points
-    const isCurrIncomplete = isIncompletePolygon(this.state.data);
-    var didPointsChange = false;
-    if (oldPoints.length !== points.length) { 
-      didPointsChange = true;
+    const isCurrIncomplete = isIncompletePolygon(this.state.data)
+    var didPointsChange = false
+    if (oldPoints.length !== points.length) {
+      didPointsChange = true
     } else {
-      for (var i=0; i < points.length; i++) { 
-        if (points[i].x !== oldPoints[i].x || points[i].y !== oldPoints[i].y) { 
-          didPointsChange = true;
+      for (var i = 0; i < points.length; i++) {
+        if (points[i].x !== oldPoints[i].x || points[i].y !== oldPoints[i].y) {
+          didPointsChange = true
         }
       }
     }
-    if (didPointsChange) { 
-      this.onChange && this.onChange(points, !isCurrIncomplete);
-    } else { 
-      const isPrevIncomplete = isIncompletePolygon(prevState.data);
-      if (isPrevIncomplete !== isCurrIncomplete) { 
+    if (didPointsChange) {
+      this.onChange && this.onChange(points, !isCurrIncomplete)
+    } else {
+      const isPrevIncomplete = isIncompletePolygon(prevState.data)
+      if (isPrevIncomplete !== isCurrIncomplete) {
         this.onChange && this.onChange(points, !isCurrIncomplete)
       }
     }
@@ -130,9 +131,9 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
 
   // onVertexMouseOver = (ix: number, e: KonvaEventObject<MouseEvent>) => {
   //   const data = this.state.data
-  //   switch (data.tag) { 
+  //   switch (data.tag) {
   //     case ''
-  //     default: 
+  //     default:
   //       return
   //   }
   // }
@@ -182,19 +183,19 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
     const points = this.state.points.map(pt => pt.add(new Point(e.evt.movementX, e.evt.movementY)))
     this.setState({ points }, () => {
       e.target.x(0)
-      e.target.y(0)    
+      e.target.y(0)
     })
   }
 
   onPolygonTransform = (e: KonvaEventObject<Event>) => {
-    const matrix = e.target.getAbsoluteTransform()    
+    const matrix = e.target.getAbsoluteTransform()
     const points = this.state.points.map(pt => Point.fromObj(matrix.point(pt)))
     this.setState({ points }, () => {
       e.target.x(0)
       e.target.y(0)
       //e.target.rotation(0)
       e.target.scaleX(1)
-      e.target.scaleY(1)    
+      e.target.scaleY(1)
     })
   }
 
@@ -243,22 +244,25 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
     e.cancelBubble = true
     const point = Point.fromObj(e.target?.getStage()?.getPointerPosition() as KonvaVector2d)
     const data = this.state.data
-    const points = this.state.points.slice();
+    const points = this.state.points.slice()
     if (data.tag === 'incomplete_placing_vertex') {
-      if (e.evt.shiftKey) { 
+      if (e.evt.shiftKey) {
         //console.log("Shift!")
         const [shouldPlacePoint, prevPoints] = recordPoint(point, data.prevPoints || [])
-        if (shouldPlacePoint) { 
+        if (shouldPlacePoint) {
           if (data.atEnd) {
             points.push(data.point)
           } else {
             points.unshift(data.point)
           }
         }
-        this.setState({ points: points, data: {tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd, prevPoints: prevPoints}})
-      } else { 
+        this.setState({
+          points: points,
+          data: { tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd, prevPoints: prevPoints },
+        })
+      } else {
         this.setState({ data: { tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd } })
-      } 
+      }
     }
   }
 
@@ -392,8 +396,8 @@ export default class PolygonEditor extends React.Component<PolygonEditorProps, E
         break
       case 'complete_poly_selected':
         const point = Point.fromObj(this.stageRef.current?.getPointerPosition() as KonvaVector2d)
-        this.setState({ points: [], data: {tag: 'incomplete_placing_vertex', point: point, atEnd: true}})
-        break;
+        this.setState({ points: [], data: { tag: 'incomplete_placing_vertex', point: point, atEnd: true } })
+        break
       default:
         return
     }

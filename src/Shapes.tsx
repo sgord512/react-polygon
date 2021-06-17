@@ -1,14 +1,12 @@
 import { Point } from './Point'
-import { Circle, Line, Group, Transformer } from 'react-konva'
+import { Circle, Line, Group } from 'react-konva'
 import { useState } from 'react'
 import { KonvaEventObject } from 'konva/lib/Node'
 import React from 'react'
-import { isPropertySignature } from 'typescript'
+import { Line as KonvaLine } from 'konva/lib/shapes/Line'
 
 const VERTEX_DEFAULT_COLOR = 'white'
-const VERTEX_SELECTED_COLOR = 'rgba(237, 82, 61, 1)'
 const VERTEX_MOUSEOVER_COLOR = 'rgba(40, 191, 138, 1)'
-const VERTEX_MOUSEDOWN_COLOR = 'rgba(35, 108, 82, 1)'
 const POLYGON_FILL_COLOR = 'rgba(201, 201, 201, 1)'
 const BOUNDARY_STROKE_COLOR = 'rgba(108, 159, 241, 1)'
 const BOUNDARY_STROKE_WIDTH = 3
@@ -68,10 +66,10 @@ export interface PolygonProps {
   isSelected?: boolean
   onTransform?: KonvaEventHandler<Event>
   onClick?: KonvaEventHandler<MouseEvent>
-  ref: React.MutableRefObject<undefined>
+  ref: React.RefObject<KonvaLine>
 }
 
-export const Polygon = React.forwardRef((props: PolygonProps, ref) => {
+export const Polygon = React.forwardRef((props: PolygonProps, ref : React.ForwardedRef<KonvaLine>) => {
   const flatPoints = Point.flattenPoints(props.points)
   const {
     fill = POLYGON_FILL_COLOR,
@@ -80,7 +78,7 @@ export const Polygon = React.forwardRef((props: PolygonProps, ref) => {
     onDragEnd,
     onTransform,
     onClick,
-    isSelected = false,
+    //isSelected = false,
   } = props
 
   return (
