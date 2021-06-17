@@ -7,14 +7,14 @@ import { Vertex, Polygon, Boundary } from './Shapes'
 import { KonvaEventObject } from 'konva/lib/Node'
 import { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer'
 import { Line as KonvaLine } from 'konva/lib/shapes/Line'
+import { Stage as KonvaStage } from 'konva/lib/Stage'
 import { Vector2d as KonvaVector2d } from 'konva/lib/types'
-import { Circle as KonvaCircle } from 'konva/lib/shapes/Circle'
-
+import { recordPoint } from './PointController'
 const DELTA = 1
 
 type EditState =
   | { tag: 'incomplete'; hover?: number }
-  | { tag: 'incomplete_placing_vertex'; point: Point; atEnd: boolean }
+  | { tag: 'incomplete_placing_vertex'; point: Point; atEnd: boolean, prevPoints?: Point[] }
   // Temporarily let's not have this be possible
   | { tag: 'incomplete_vertex_selected'; selected: number; hover?: number }
   | { tag: 'complete'; hover?: number }
@@ -27,38 +27,17 @@ type EditState =
   | { tag: 'complete_poly_dragging' }
   | { tag: 'complete_placing_boundary_vertex'; point: Point }
 
-export interface EditorState {
-  state:
-    | 'incomplete'
-    | 'incomplete_placing_vertex'
-    | 'incomplete_vertex_selected'
-    | 'complete_vertex_hover'
-    | 'complete_vertex_selected_hover'
-    | 'complete_vertex_mousedown'
-    | 'complete_vertex_selected_mousedown'
-    | 'complete'
-    | 'complete_vertex_selected'
-    | 'complete_vertex_dragging'
-    | 'complete_poly_selected'
-    | 'complete_poly_transforming'
-    | 'complete_placing_boundary_vertex'
-  points: Point[]
-  selected: null | { type: 'polygon' } | { type: 'vertex'; ix: number }
-  isPolygonSelected: boolean
-  selectedVertex?: number
-  provisionalBoundaryPoint?: Point
-  provisionalPoint?: Point
-}
-export type EditorState2 = {
+export type EditorState = {
   data: EditState // I don't want to lift the values here into the top-level of the object, because that would lead to shallow merges and more fields than expected. So I'm wrapping this in an additional layer of abstraction.
   points: Point[]
 }
 
 const INITIAL_POINTS = [new Point(100, 100), new Point(200, 100), new Point(160, 200)]
 
-export default class PolygonEditor extends React.Component<{}, EditorState2> {
+export default class PolygonEditor extends React.Component<{}, EditorState> {
   polygonRef: React.RefObject<KonvaLine>
   transformerRef: React.RefObject<KonvaTransformer>
+  stageRef: React.RefObject<KonvaStage>
   //vertexRef: React.RefObject<KonvaCircle>
 
   constructor(props: {}) {
@@ -69,10 +48,10 @@ export default class PolygonEditor extends React.Component<{}, EditorState2> {
     }
     this.polygonRef = React.createRef<KonvaLine>()
     this.transformerRef = React.createRef<KonvaTransformer>()
-    this.vertexRef = React.createRef<KonvaCircle>()
+    this.stageRef = React.createRef<KonvaStage>()
   }
 
-  componentDidUpdate = (_prevProps, prevState: EditorState2, _snapshot) => {
+  componentDidUpdate = (_prevProps: any, prevState: EditorState, _snapshot: any) => {
     const wasPolygonSelected =
       prevState.data.tag === 'complete_poly_selected' || prevState.data.tag === 'complete_poly_selected_transforming'
     const isPolygonSelected = this.state.data.tag === 'complete_poly_selected'
@@ -201,8 +180,22 @@ export default class PolygonEditor extends React.Component<{}, EditorState2> {
     e.cancelBubble = true
     const point = Point.fromObj(e.target?.getStage()?.getPointerPosition() as KonvaVector2d)
     const data = this.state.data
+    const points = this.state.points.slice();
     if (data.tag === 'incomplete_placing_vertex') {
-      this.setState({ data: { tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd } })
+      if (e.evt.shiftKey) { 
+        //console.log("Shift!")
+        const [shouldPlacePoint, prevPoints] = recordPoint(point, data.prevPoints || [])
+        if (shouldPlacePoint) { 
+          if (data.atEnd) {
+            points.push(data.point)
+          } else {
+            points.unshift(data.point)
+          }
+        }
+        this.setState({ points: points, data: {tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd, prevPoints: prevPoints}})
+      } else { 
+        this.setState({ data: { tag: 'incomplete_placing_vertex', point: point, atEnd: data.atEnd } })
+      } 
     }
   }
 
@@ -334,6 +327,10 @@ export default class PolygonEditor extends React.Component<{}, EditorState2> {
             return
         }
         break
+      case 'complete_poly_selected':
+        const point = Point.fromObj(this.stageRef.current?.getPointerPosition() as KonvaVector2d)
+        this.setState({ points: [], data: {tag: 'incomplete_placing_vertex', point: point, atEnd: true}})
+        break;
       default:
         return
     }
@@ -397,6 +394,7 @@ export default class PolygonEditor extends React.Component<{}, EditorState2> {
           _useStrictMode
           onClick={this.onStageClick}
           onMouseMove={this.onStageMouseMove}
+          ref={this.stageRef}
         >
           <Layer>
             {data.tag !== 'incomplete_placing_vertex' && data.tag !== 'incomplete' && (
